@@ -1,4 +1,4 @@
-__version__ = '1.0.0'
+__version__ = '1.0.2'
 __license__ = 'MIT'
 __copyright__ = 'Copyright (C) 2017 Zach Gates'
 
@@ -11,6 +11,8 @@ __all__ = [
     'core',
     'security',
     'server',
-    'settings',
     'utils',
 ]
+
+for module in __all__:
+    __import__('imposter.%s' % module)

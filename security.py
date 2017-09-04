@@ -10,7 +10,7 @@ from Crypto.Util.number import long_to_bytes
 from . import core
 
 
-DEF_P = int(
+_DEF_P = int(
     '6741187748806620932576983646169579908388179173131896217634330086718213'
     '7196897524293100294385477509911251666985176430415411153583804934148112'
     '2270719203394689775275781619712787479926285627950841056894489914560578'
@@ -47,8 +47,8 @@ class KeyHandler(object):
     def __init__(self):
         object.__init__(self)
 
-        self.__private_key = random.randint(1, DEF_P - 1)
-        self.__public_key = pow(2, self.__private_key, DEF_P)
+        self.__private_key = random.randint(1, _DEF_P - 1)
+        self.__public_key = pow(2, self.__private_key, _DEF_P)
         self.__counter_key = None
         self.__hash = None
 
@@ -73,7 +73,7 @@ class KeyHandler(object):
             transport = long_to_bytes(pow(
                 self.__counter_key,
                 self.__private_key,
-                DEF_P))
+                _DEF_P))
             hash_ = SHA256.new(transport).digest()
             return AES.new(
                 hash_[0:32],
@@ -126,7 +126,6 @@ class KeyHandler(object):
 
 
 __all__ = [
-    DEF_P,
     secure_string_comparison,
     KeyHandler,
 ]

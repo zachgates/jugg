@@ -17,10 +17,8 @@ class Datagram(object):
 
     def __init__(self,
                  command : int = None,
-                 sender : str = None,
-                 recipient : str = None,
-                 data : str = None,
-                 hmac : str = None):
+                 sender : str = None, recipient : str = None,
+                 data : str = None, hmac : str = None):
         object.__init__(self)
 
         self.__command = command
@@ -177,9 +175,12 @@ class Node(security.KeyHandler):
 
 class ClientBase(Node, pyarchy.common.ClassicObject):
 
-    def __init__(self, stream_in, stream_out):
+    def __init__(self, stream_in, stream_out, hmac_key, challenge_key):
         Node.__init__(self, stream_in, stream_out)
         pyarchy.common.ClassicObject.__init__(self, '', rand_id = False)
+
+        self._hmac_key = hmac_key or  b''
+        self._challenge_key = challenge_key or b''
 
         self.__name = None
 

@@ -1,10 +1,10 @@
 import asyncio
 import re
 
-from . import settings
+from . import constants
 
 
-def interactive_event_loop(loop, start, stop, run_forever):
+def reactive_event_loop(loop, start, stop, run_forever):
     try:
         loop.run_until_complete(start)
         if run_forever:
@@ -21,10 +21,10 @@ def interactive_event_loop(loop, start, stop, run_forever):
 
 
 def validate_name(name):
-    return bool(re.fullmatch(settings.NAME_REGEX, name))
+    return bool(re.fullmatch(constants.NAME_REGEX, name))
 
 
 __all__ = [
-    interactive_event_loop,
+    reactive_event_loop,
     validate_name,
 ]

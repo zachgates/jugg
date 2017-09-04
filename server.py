@@ -2,17 +2,21 @@ import asyncio
 import pyarchy
 import socket
 import srp
-import ssl
 
-from . import constants, settings, utils
+from . import constants, utils
 from .core import ClientBase, Datagram
 from .security import KeyHandler
 
 
 class ClientAI(ClientBase):
 
-    def __init__(self, stream_in, stream_out):
-        ClientBase.__init__(self, stream_in, stream_out)
+    def __init__(self,
+                 stream_in, stream_out,
+                 hmac_key : bytes, challenge_key : bytes):
+        ClientBase.__init__(
+            self,
+            stream_in, stream_out,
+            hmac_key, challenge_key)
 
         self._commands[constants.CMD_LOGIN] = self.handle_login
 
@@ -26,7 +30,7 @@ class ClientAI(ClientBase):
            not self.verify_HMAC(
                dg.hmac.encode(),
                dg.data.encode(),
-               settings.HMAC_KEY):
+               self._hmac_key):
             await self.send_error(constants.ERR_HMAC)
             return
         else:
@@ -37,10 +41,9 @@ class ClientAI(ClientBase):
 
         if response and response.data:
             svr = srp.Verifier(
-                self.name.encode('latin-1'),
+                dg.data.encode(),
                 *srp.create_salted_verification_key(
-                    self.name.encode(),
-                    settings.CHALLENGE_PASSWORD),
+                    dg.data.encode(), self._challenge_key),
                 bytes.fromhex(response.data))
         else:
             return
@@ -67,27 +70,32 @@ class ClientAI(ClientBase):
 
 class Server(object):
 
-    def __init__(self, host : str = None, port : int = None):
+    client_handler = ClientAI
+
+    def __init__(self,
+                 host : str = None, port : int = None,
+                 socket_ : socket.socket = None,
+                 hmac_key : bytes = None, challenge_key : bytes = None):
         KeyHandler.__init__(self)
 
-        if host is None:
-            self._host = settings.HOST
+        if host and port:
+            self._address = (host, port)
+            self._socket = None
+        elif socket_:
+            self._address = socket_.getsockname()
+            self._socket = socket_
         else:
-            self._host = host
+            raise TypeError('must supply either address or socket')
 
-        if port is None:
-            self._port = settings.PORT
-        else:
-            self._port = port
-
-        self._socket = None
-        self._loop = None
-        self._server = None
+        self._hmac_key = hmac_key or  b''
+        self._challenge_key = challenge_key or b''
 
     async def new_connection(self, stream_in, stream_out):
         try:
             # Create the client on the server
-            client = ClientAI(stream_in, stream_out)
+            client = Server.client_handler(
+                stream_in, stream_out,
+                self._hmac_key, self._challenge_key)
             self.clients.add(client)
             # Maintain the connection
             await client.start()
@@ -97,25 +105,19 @@ class Server(object):
             return
 
     def start(self):
-        # Make the socket
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        if settings.WANT_SSL and settings.CRT_FILE and settings.KEY_FILE:
-            self._socket = ssl.wrap_socket(
-                self._socket,
-                keyfile = settings.KEY_FILE,
-                certfile = settings.CRT_FILE,
-                server_side = True,
-                ssl_version = ssl.PROTOCOL_TLSv1_2,
-                do_handshake_on_connect = True,
-                ciphers = 'ECDHE-ECDSA-AES256-GCM-SHA384')
-
-        self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._socket.bind((self._host, self._port))
+        if self._socket:
+            pass
+        elif self._address:
+            # Make the socket
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self._socket.bind(self._address)
+        else:
+            raise AttributeError('no socket or address specified')
 
         # Establish the conncetion
         loop = asyncio.get_event_loop()
-        self._server = loop.create_server(
+        server_coroutine = loop.create_server(
             # Stream factory
             lambda: asyncio.StreamReaderProtocol(
                 asyncio.StreamReader(loop = loop),
@@ -128,11 +130,10 @@ class Server(object):
         self.clients.object_type = ClientBase
 
         # Maintain the connection
-        utils.interactive_event_loop(
+        utils.reactive_event_loop(
             loop,
-            self._server,
-            self.stop(),
-            True)
+            server_coroutine, self.stop(),
+            run_forever = True)
 
     async def stop(self):
         # Cleanup
@@ -143,8 +144,3 @@ __all__ = [
     ClientAI,
     Server,
 ]
-
-
-if __name__ == '__main__':
-    server = Server()
-    server.start()

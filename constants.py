@@ -1,3 +1,6 @@
+# System
+NAME_REGEX = r'\w{1,32}'
+
 # Commands
 CMD_ERR = 0
 CMD_RESP = 1
@@ -28,6 +31,8 @@ ERROR_INFO_MAP = {
 
 
 __all__ = [
+    # System
+    NAME_REGEX,
     # Commands
     CMD_ERR, CMD_RESP, CMD_LOGIN,
     # Error codes

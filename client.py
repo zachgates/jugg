@@ -3,53 +3,49 @@ import base64
 import pyarchy
 import socket
 import srp
-import ssl
 
-from . import constants, settings, utils
+from . import constants, utils
 from .constants import ERROR_INFO_MAP
 from .core import ClientBase, Datagram
 
 
 class Client(ClientBase):
 
-    def __init__(self, host : str = None, port : int = None):
-        if host is None:
-            self._host = settings.HOST
+    def __init__(self,
+                 host : str = None, port : int = None,
+                 socket_ : socket.socket = None,
+                 hmac_key : bytes = None, challenge_key : bytes = None):
+        if host and port:
+            self._address = (host, port)
+            self._socket = None
+        elif socket_:
+            self._address = socket_.getsockname()
+            self._socket = socket_
         else:
-            self._host = host
+            raise TypeError('must supply either address or socket')
 
-        if port is None:
-            self._port = settings.PORT
+        loop = asyncio.get_event_loop()
+        streams = loop.run_until_complete(self.make_streams(loop))
+        ClientBase.__init__(self, *streams, hmac_key, challenge_key)
+
+    async def make_streams(self, loop):
+        if self._socket:
+            pass
+        elif self._address:
+            # Make the socket
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self._socket.connect(self._address)
         else:
-            self._port = port
-
-        self._socket = None
-        self._loop = asyncio.get_event_loop()
-
-        streams = self._loop.run_until_complete(self.make_streams())
-        ClientBase.__init__(self, *streams)
-
-    async def make_streams(self):
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        if settings.WANT_SSL and settings.CRT_FILE:
-            self._socket = ssl.wrap_socket(
-                self._socket,
-                ca_certs = settings.CRT_FILE,
-                cert_reqs = ssl.CERT_REQUIRED,
-                ssl_version = ssl.PROTOCOL_TLSv1_2,
-                ciphers = 'ECDHE-ECDSA-AES256-GCM-SHA384')
-
-        self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._socket.connect((self._host, self._port))
+            raise AttributeError('no socket or address specified')
 
         return await asyncio.open_connection(
-            loop = self._loop,
+            loop = loop,
             sock = self._socket)
 
     async def send_login(self, name):
         # Intital login request
-        hmac = self.generate_HMAC(name.encode(), settings.HMAC_KEY)
+        hmac = self.generate_HMAC(name.encode(), self._hmac_key)
         await self.send(
             Datagram(
                 command = constants.CMD_LOGIN,
@@ -60,11 +56,11 @@ class Client(ClientBase):
         response = await self.recv()
 
         if not response or response.data is not True:
-            self.do_error(constants.ERR_CREDENTIALS)
+            await self.do_error(constants.ERR_CREDENTIALS)
             return
 
         # Challenge
-        user = srp.User(name.encode(), settings.CHALLENGE_PASSWORD)
+        user = srp.User(name.encode(), self._challenge_key)
         username, auth = user.start_authentication()
 
         await self.send_response(auth.hex())
@@ -75,7 +71,7 @@ class Client(ClientBase):
             M = user.process_challenge(s, B)
 
             if M is None:
-                self.do_error(constants.ERR_CHALLENGE)
+                await self.do_error(constants.ERR_CHALLENGE)
                 return
             else:
                 await self.send_response(M.hex())
@@ -91,7 +87,7 @@ class Client(ClientBase):
                 self.name = name
                 self.id = pyarchy.core.Identity(response.recipient)
         else:
-            self.do_error(constants.ERR_VERIFICATION)
+            await self.do_error(constants.ERR_VERIFICATION)
 
     async def send_hello(self, member_names):
         await self.send(
