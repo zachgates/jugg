@@ -117,7 +117,7 @@ class Server(object):
 
         # Establish the conncetion
         loop = asyncio.get_event_loop()
-        server_coroutine = loop.create_server(
+        server_coro = loop.create_server(
             # Stream factory
             lambda: asyncio.StreamReaderProtocol(
                 asyncio.StreamReader(loop = loop),
@@ -129,13 +129,13 @@ class Server(object):
         self.clients = pyarchy.data.ItemPool()
         self.clients.object_type = ClientBase
         
-        self.run()
+        self.run(loop, server_coro)
 
-    def run(self):
+    def run(self, event_loop, start_coro):
         # Maintain the connection
         utils.reactive_event_loop(
-            loop,
-            server_coroutine, self.stop(),
+            event_loop,
+            start_coro, self.stop(),
             run_forever = True)
 
     async def stop(self):
