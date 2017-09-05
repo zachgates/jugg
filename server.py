@@ -19,10 +19,13 @@ class ClientAI(ClientBase):
             hmac_key, challenge_key)
 
         self._commands[constants.CMD_LOGIN] = self.handle_login
+        
+    def verify_credentials(self, data):
+        return utils.validate_name(data)
 
     async def handle_login(self, dg : Datagram):
         # Initial login request
-        if not utils.validate_name(dg.data):
+        if not self.verify_credentials(dg.data):
             await self.send_error(constants.ERR_CREDENTIALS)
             return
 
