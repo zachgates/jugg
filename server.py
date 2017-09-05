@@ -128,7 +128,10 @@ class Server(object):
         # Make the client pool
         self.clients = pyarchy.data.ItemPool()
         self.clients.object_type = ClientBase
+        
+        self.run()
 
+    def run(self):
         # Maintain the connection
         utils.reactive_event_loop(
             loop,
