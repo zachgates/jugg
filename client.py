@@ -34,7 +34,6 @@ class Client(ClientBase):
         elif self._address:
             # Make the socket
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self._socket.connect(self._address)
         else:
             raise AttributeError('no socket or address specified')
