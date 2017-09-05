@@ -88,14 +88,6 @@ class Client(ClientBase):
         else:
             await self.do_error(constants.ERR_VERIFICATION)
 
-    async def send_hello(self, member_names):
-        await self.send(
-            Datagram(
-                command = constants.CMD_HELLO,
-                sender = self.id,
-                recipient = self.id,
-                data = member_names))
-
 
 __all__ = [
     Client,
