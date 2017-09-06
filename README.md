@@ -1,4 +1,4 @@
-# imposter
+# jugg
 A secure, end-to-end encrypted communication framework
 
 ## Example
@@ -6,20 +6,20 @@ Below is a basic example of a client-server connection. No commands are executed
 
 Server:
 ```python
-import imposter
+import jugg
 
-sv = imposter.server.Server('127.0.0.1', 1500)
+sv = jugg.server.Server('127.0.0.1', 1500)
 sv.start()
 ```
 
 Client:
 ```python
 import asyncio
-import imposter
+import jugg
 
-cl = imposter.client.Client('127.0.0.1', 1500)
+cl = jugg.client.Client('127.0.0.1', 1500)
 
-imposter.utils.reactive_event_loop(
+jugg.utils.reactive_event_loop(
     asyncio.get_event_loop(),
     cl.start(), cl.stop(),
     run_forever = False)
