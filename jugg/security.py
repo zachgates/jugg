@@ -49,38 +49,56 @@ class KeyHandler(object):
 
         self.__private_key = random.randint(1, _DEF_P - 1)
         self.__public_key = pow(2, self.__private_key, _DEF_P)
+
         self.__counter_key = None
-        self.__hash = None
+        self.__counter_cipher = None
 
     @property
     def key(self) -> int:
         return self.__public_key
 
     @property
-    def counterkey(self) -> int:
+    def counter_key(self) -> int:
         return self.__counter_key
 
-    @counterkey.setter
-    def counterkey(self, key : int):
+    @counter_key.setter
+    def counter_key(self, key : int):
         if self.__counter_key is None:
             self.__counter_key = int(key)
         else:
-            raise AttributeError('counterkey can only be set once')
+            raise AttributeError('counter_key can only be set once')
 
     @property
     def cipher(self):
         if self.__counter_key:
-            transport = long_to_bytes(pow(
+            hash_ = self.generate_SHA256(long_to_bytes(pow(
                 self.__counter_key,
                 self.__private_key,
-                _DEF_P))
-            hash_ = SHA256.new(transport).digest()
-            return AES.new(
-                hash_[0:32],
-                AES.MODE_CBC,
-                hash_[16:32])
+                _DEF_P)))
+            return self.generate_AES256(hash_[0:32], hash_[16:32])
         else:
             return None
+
+    @property
+    def counter_cipher(self):
+        if self.__counter_cipher:
+            hash_ = self.generate_SHA256(self.__counter_cipher)
+            return self.generate_AES256(hash_[0:32], hash_[16:32])
+        else:
+            return None
+
+    @counter_cipher.setter
+    def counter_cipher(self, bytes_ : bytes):
+        if self.__counter_cipher is None:
+            self.__counter_cipher = bytes_
+        else:
+            raise AttributeError('counter_cipher can only be set once')
+
+    def generate_AES256(self, key, iv):
+        return AES.new(key, AES.MODE_CBC, iv)
+
+    def generate_SHA256(self, bytes_ : bytes):
+        return SHA256.new(bytes_).digest()
 
     def generate_HMAC(self, message, key = None):
         if key is None:
@@ -107,12 +125,19 @@ class KeyHandler(object):
             size = AES.block_size - len(data) % AES.block_size
             data += bytes([size]) * size
             # Encrypt the data
-            return self.cipher.encrypt(data)
+            data = self.cipher.encrypt(data)
+            # Encrypt with alternate cipher
+            if self.counter_cipher:
+                self.counter_cipher.encrypt(data)
+            return data
         else:
             return data.encode()
 
     def decrypt(self, data: bytes) -> str:
         if self.cipher:
+            # Decrypt with alternate cipher
+            if self.counter_cipher:
+                self.counter_cipher.decrypt(data)
             # Decrypt the data
             data = self.cipher.decrypt(data)
             # Unpad the data

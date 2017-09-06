@@ -122,14 +122,14 @@ class Node(security.KeyHandler):
 
     async def start(self):
         await self.do_handshake()
-        if self.counterkey:
+        if self.counter_key:
             await self.run()
         else:
             await self.stop()
 
     async def do_handshake(self):
         await self.send(str(self.key))
-        self.counterkey = int(await self.recv() or '0')
+        self.counter_key = int(await self.recv() or '0')
 
     async def run(self):
         # Maintain the connection

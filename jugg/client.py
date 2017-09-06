@@ -82,6 +82,9 @@ class Client(ClientBase):
             HAMK = bytes.fromhex(response.data)
             user.verify_session(HAMK)
 
+            # Generate new hash based off of the session key
+            self.counter_cipher = user.get_session_key()
+
             if user.authenticated():
                 self.name = name
                 self.id = pyarchy.core.Identity(response.recipient)
