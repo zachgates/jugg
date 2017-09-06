@@ -78,11 +78,11 @@ class Datagram(object):
 
 class Node(security.KeyHandler):
 
-    def __init__(self, stream_in, stream_out):
+    def __init__(self, stream_reader, stream_writer):
         security.KeyHandler.__init__(self)
 
-        self.__in = stream_in
-        self.__out = stream_out
+        self._stream_reader = stream_reader
+        self._stream_writer = stream_writer
 
         self._commands = {
             constants.CMD_ERR: self.handle_error,
@@ -92,12 +92,12 @@ class Node(security.KeyHandler):
         try:
             data = await asyncio.wait_for(
                 # Read size if not provided
-                self.__in.read(n_bytes if n_bytes else socket.ntohl(
+                self._stream_reader.read(n_bytes if n_bytes else socket.ntohl(
                     struct.unpack(
                         'I',
                         # Size indicator
                         await asyncio.wait_for(
-                            self.__in.read(4),
+                            self._stream_reader.read(4),
                             timeout = 4)
                         )[0]
                     )),
@@ -114,14 +114,16 @@ class Node(security.KeyHandler):
 
     async def send(self, dg : Datagram):
         data = self.encrypt(dg)
-        self.__out.write(struct.pack('I', socket.htonl(len(data))) + data)
-        await self.__out.drain()
+        self._stream_writer.write(
+            struct.pack('I', socket.htonl(len(data))) + data)
+        await self._stream_writer.drain()
 
     async def close(self):
-        self.__out.close()
+        self._stream_writer.close()
 
     async def start(self):
         await self.do_handshake()
+
         if self.counter_key:
             await self.run()
         else:
@@ -175,8 +177,10 @@ class Node(security.KeyHandler):
 
 class ClientBase(Node, pyarchy.common.ClassicObject):
 
-    def __init__(self, stream_in, stream_out, hmac_key, challenge_key):
-        Node.__init__(self, stream_in, stream_out)
+    def __init__(self,
+                 stream_reader, stream_writer,
+                 hmac_key, challenge_key):
+        Node.__init__(self, stream_reader, stream_writer)
         pyarchy.common.ClassicObject.__init__(self, '', rand_id = False)
 
         self._hmac_key = hmac_key or  b''
