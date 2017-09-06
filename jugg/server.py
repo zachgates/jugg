@@ -96,7 +96,7 @@ class Server(object):
     async def new_connection(self, stream_in, stream_out):
         try:
             # Create the client on the server
-            client = Server.client_handler(
+            client = self.client_handler(
                 stream_in, stream_out,
                 self._hmac_key, self._challenge_key)
             self.clients.add(client)

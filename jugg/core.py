@@ -182,7 +182,7 @@ class ClientBase(Node, pyarchy.common.ClassicObject):
         self._hmac_key = hmac_key or  b''
         self._challenge_key = challenge_key or b''
 
-        self.__name = None
+        self._name = None
 
     def __lt__(self, obj):
         if isinstance(obj, pyarchy.core.NamedObject):
@@ -198,12 +198,12 @@ class ClientBase(Node, pyarchy.common.ClassicObject):
 
     @property
     def name(self) -> str:
-        return self.__name
+        return str(self._name)
 
     @name.setter
     def name(self, name : str):
-        if self.__name is None:
-            self.__name = str(name)
+        if self._name is None:
+            self._name = str(name)
         else:
             raise AttributeError('name can only be set once')
 
