@@ -11,11 +11,11 @@ from .security import KeyHandler
 class ClientAI(ClientBase):
 
     def __init__(self,
-                 stream_in, stream_out,
+                 stream_reader, stream_writer,
                  hmac_key : bytes, challenge_key : bytes):
         ClientBase.__init__(
             self,
-            stream_in, stream_out,
+            stream_reader, stream_writer,
             hmac_key, challenge_key)
 
         self._commands[constants.CMD_LOGIN] = self.handle_login
@@ -93,12 +93,13 @@ class Server(object):
         self._hmac_key = hmac_key or  b''
         self._challenge_key = challenge_key or b''
 
-    async def new_connection(self, stream_in, stream_out):
+    async def new_connection(self, stream_reader, stream_writer, **kwargs):
         try:
             # Create the client on the server
             client = self.client_handler(
-                stream_in, stream_out,
-                self._hmac_key, self._challenge_key)
+                stream_reader, stream_writer,
+                self._hmac_key, self._challenge_key,
+                **kwargs)
             self.clients.add(client)
             # Maintain the connection
             await client.start()
