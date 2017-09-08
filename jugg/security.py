@@ -118,36 +118,37 @@ class KeyHandler(object):
         return secure_string_comparison(gen_hmac, base64.b85decode(hmac))
 
     def encrypt(self, data: str) -> bytes:
+        # Encode the data
+        data = base64.b85encode(str(data).encode())
+        # Pad the data
+        size = AES.block_size - len(data) % AES.block_size
+        data += bytes([size]) * size
+
+        # Encrypt with personal cipher
         if self.cipher:
-            # Encode the data
-            data = base64.b85encode(str(data).encode())
-            # Pad the data
-            size = AES.block_size - len(data) % AES.block_size
-            data += bytes([size]) * size
-            # Encrypt the data
             data = self.cipher.encrypt(data)
-            # Encrypt with alternate cipher
-            if self.counter_cipher:
-                self.counter_cipher.encrypt(data)
-            return data
-        else:
-            return data.encode()
+
+        # Encrypt with alternate cipher
+        if self.counter_cipher:
+            data = self.counter_cipher.encrypt(data)
+
+        return data
 
     def decrypt(self, data: bytes) -> str:
+        # Decrypt with alternate cipher
+        if self.counter_cipher:
+            data = self.counter_cipher.decrypt(data)
+
+        # Decrypt with personal cipher
         if self.cipher:
-            # Decrypt with alternate cipher
-            if self.counter_cipher:
-                self.counter_cipher.decrypt(data)
-            # Decrypt the data
             data = self.cipher.decrypt(data)
-            # Unpad the data
-            data = data[:-data[-1]]
-            # Decode the data
-            data = base64.b85decode(data).decode()
-            # Make a Datagram
-            return core.Datagram.from_string(data)
-        else:
-            return data.decode()
+
+        # Unpad the data
+        data = data[:-data[-1]]
+        # Decode the data
+        data = base64.b85decode(data).decode()
+        # Make a Datagram
+        return core.Datagram.from_string(data)
 
 
 __all__ = [

@@ -85,6 +85,7 @@ class Node(security.KeyHandler):
         self._stream_writer = stream_writer
 
         self._commands = {
+            constants.CMD_SHAKE: self.handle_handshake,
             constants.CMD_ERR: self.handle_error,
         }
 
@@ -118,39 +119,39 @@ class Node(security.KeyHandler):
             struct.pack('I', socket.htonl(len(data))) + data)
         await self._stream_writer.drain()
 
-    async def close(self):
-        self._stream_writer.close()
-
     async def start(self):
-        await self.do_handshake()
+        await self.send_handshake()
 
-        if self.counter_key:
-            await self.run()
-        else:
-            await self.stop()
-
-    async def do_handshake(self):
-        await self.send(str(self.key))
-        self.counter_key = int(await self.recv() or '0')
-
-    async def run(self):
         # Maintain the connection
-        while True:
-            dg = await self.recv()
-            if dg is None:
-                #  Connection broke
-                break
-            elif dg:
-                await self.handle_datagram(dg)
-            else:
-                # Still connected; nothing to do
-                continue
+        flag = False
+        while not flag:
+            data = await self.recv()
+            flag = not await self.run(data)
 
-        # Cleanup
-        await self.stop()
+    async def run(self, dg):
+        if dg is None:
+            #  Connection broke
+            return False
+        elif dg:
+            await self.handle_datagram(dg)
+            return True
+        else:
+            # Still connected; nothing to do
+            return True
 
     async def stop(self):
-        await self.close()
+        self._stream_writer.close()
+
+    async def send_handshake(self):
+        await self.send(
+            Datagram(
+                command = constants.CMD_SHAKE,
+                sender = self.id,
+                recipient = self.id,
+                data = self.key))
+
+    async def handle_handshake(self, dg):
+        self.counter_key = int(dg.data) if dg.data else 0
 
     async def send_error(self, errno : int):
         await self.send(
@@ -172,7 +173,7 @@ class Node(security.KeyHandler):
         if func:
             await func(dg)
         else:
-            await self.stop()
+            await self.send_error(constants.ERR_DISCONNECT)
 
 
 class ClientBase(Node, pyarchy.common.ClassicObject):

@@ -28,6 +28,8 @@ class Client(ClientBase):
         streams = loop.run_until_complete(self.make_streams(loop))
         ClientBase.__init__(self, *streams, hmac_key, challenge_key)
 
+        self._commands[constants.CMD_LOGIN] = self.handle_login
+
     async def make_streams(self, loop):
         if self._socket:
             pass
@@ -42,20 +44,22 @@ class Client(ClientBase):
             loop = loop,
             sock = self._socket)
 
-    async def send_login(self, name):
-        # Intital login request
+    async def handle_login(self, dg):
+        # Credentials
+        if not dg.recipient:
+            await self.do_error(constants.ERR_CREDENTIALS)
+            return
+        else:
+            name = dg.recipient
+
+        # HMAC
         hmac = self.generate_HMAC(name.encode(), self._hmac_key)
-        await self.send(
-            Datagram(
-                command = constants.CMD_LOGIN,
-                sender = self.id,
-                recipient = self.id,
-                data = name,
-                hmac = base64.b85encode(hmac).decode()))
+        await self.send_response(base64.b85encode(hmac).decode())
+
         response = await self.recv()
 
-        if not response or response.data is not True:
-            await self.do_error(constants.ERR_CREDENTIALS)
+        if not response or response.data != True:
+            await self.do_error(constants.ERR_HMAC)
             return
 
         # Challenge

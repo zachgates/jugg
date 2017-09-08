@@ -24,15 +24,25 @@ class ClientAI(ClientBase):
         return utils.validate_name(data)
 
     async def handle_login(self, dg : Datagram):
-        # Initial login request
+        # Credentials
         if not self.verify_credentials(dg.data):
             await self.send_error(constants.ERR_CREDENTIALS)
             return
+        else:
+            name = dg.data
+            await self.send(
+                Datagram(
+                    command = constants.CMD_LOGIN,
+                    recipient = name))
 
-        if not isinstance(dg.data, str) or \
+        # HMAC
+        response = await self.recv()
+
+        if not response or \
+           not response.data or \
            not self.verify_HMAC(
-               dg.hmac.encode(),
-               dg.data.encode(),
+               response.data.encode(),
+               name.encode(),
                self._hmac_key):
             await self.send_error(constants.ERR_HMAC)
             return
@@ -44,9 +54,9 @@ class ClientAI(ClientBase):
 
         if response and response.data:
             svr = srp.Verifier(
-                dg.data.encode(),
+                name.encode(),
                 *srp.create_salted_verification_key(
-                    dg.data.encode(), self._challenge_key),
+                    name.encode(), self._challenge_key),
                 bytes.fromhex(response.data))
         else:
             return
@@ -64,9 +74,11 @@ class ClientAI(ClientBase):
         if response and response.data:
             HAMK = svr.verify_session(bytes.fromhex(response.data))
             if HAMK and svr.authenticated():
-                self.name = dg.data
-                self.id = pyarchy.core.Identity()
                 await self.send_response(HAMK.hex())
+                self.counter_cipher = svr.get_session_key()
+
+                self.name = name
+                self.id = pyarchy.core.Identity()
             else:
                 await self.send_error(constants.ERR_VERIFICATION)
 
@@ -132,7 +144,7 @@ class Server(object):
         # Make the client pool
         self.clients = pyarchy.data.ItemPool()
         self.clients.object_type = ClientBase
-        
+
         self.run(loop, server_coro)
 
     def run(self, event_loop, start_coro):
