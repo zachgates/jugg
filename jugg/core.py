@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import pyarchy
 import socket
@@ -89,35 +90,45 @@ class Node(security.KeyHandler):
             constants.CMD_ERR: self.handle_error,
         }
 
+    async def send(self, dg : Datagram):
+        # Encode
+        data = base64.b85encode(str(dg).encode())
+        # Pad
+        size = 16 - len(data) % 16
+        data += bytes([size]) * size
+        # Encrypt
+        data = self.encrypt(data)
+
+        n_bytes = len(data)
+        pointer = struct.pack('I', socket.htonl(n_bytes))
+
+        self._stream_writer.write(pointer + data)
+        await self._stream_writer.drain()
+
     async def recv(self, n_bytes : int = None):
         try:
-            data = await asyncio.wait_for(
-                # Read size if not provided
-                self._stream_reader.read(n_bytes if n_bytes else socket.ntohl(
-                    struct.unpack(
-                        'I',
-                        # Size indicator
-                        await asyncio.wait_for(
-                            self._stream_reader.read(4),
-                            timeout = 4)
-                        )[0]
-                    )),
-                timeout = 1)
+            if n_bytes is None:
+                pointer = await self._stream_reader.readexactly(4)
+                n_bytes = socket.ntohl(struct.unpack('I', pointer)[0])
+
+            data = await self._stream_reader.read(n_bytes)
 
             if data:
-                return self.decrypt(data)
+                # Decrypt
+                data = self.decrypt(data)
+                # Unpad
+                data = data[:-data[-1]]
+                # Decode
+                data = base64.b85decode(data).decode()
+                return Datagram.from_string(data)
             else:
                 return None
-        except TimeoutError:
-            return ''
-        except struct.error:
+        except asyncio.streams.IncompleteReadError:
+            # Failed to receive pointer
             return None
-
-    async def send(self, dg : Datagram):
-        data = self.encrypt(dg)
-        self._stream_writer.write(
-            struct.pack('I', socket.htonl(len(data))) + data)
-        await self._stream_writer.drain()
+        except struct.error:
+            # Received invalid pointer
+            return None
 
     async def start(self):
         await self.send_handshake()
@@ -162,11 +173,8 @@ class Node(security.KeyHandler):
                 data = errno))
 
     # Add functionality in subclass
-    async def do_error(self, errno):
-        print('err({0}):'.format(errno), constants.ERROR_INFO_MAP.get(errno))
-
     async def handle_error(self, dg : Datagram):
-        await self.do_error(dg.data)
+        return NotImplemented
 
     async def handle_datagram(self, dg: Datagram):
         func = self._commands.get(dg.command)
@@ -184,7 +192,7 @@ class ClientBase(Node, pyarchy.common.ClassicObject):
         Node.__init__(self, stream_reader, stream_writer)
         pyarchy.common.ClassicObject.__init__(self, '', rand_id = False)
 
-        self._hmac_key = hmac_key or  b''
+        self._hmac_key = hmac_key or b''
         self._challenge_key = challenge_key or b''
 
         self._name = None

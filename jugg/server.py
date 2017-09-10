@@ -29,44 +29,44 @@ class ClientAI(ClientBase):
             await self.send_error(constants.ERR_CREDENTIALS)
             return
         else:
-            name = dg.data
             await self.send(
                 Datagram(
                     command = constants.CMD_LOGIN,
-                    recipient = name))
+                    recipient = dg.data))
 
         # HMAC
         response = await self.recv()
 
-        if not response or \
-           not response.data or \
-           not self.verify_HMAC(
+        if response and response.data and \
+           self.verify_HMAC(
                response.data.encode(),
-               name.encode(),
+               dg.data.encode(),
                self._hmac_key):
+            await self.send_response(True)
+        else:
             await self.send_error(constants.ERR_HMAC)
             return
-        else:
-            await self.send_response(True)
 
         # Challenge
         response = await self.recv()
 
         if response and response.data:
             svr = srp.Verifier(
-                name.encode(),
+                dg.data.encode(),
                 *srp.create_salted_verification_key(
-                    name.encode(), self._challenge_key),
+                    dg.data.encode(),
+                    self._challenge_key),
                 bytes.fromhex(response.data))
         else:
+            await self.send_error(constants.ERR_CHALLENGE)
             return
 
         s, B = svr.get_challenge()
-        if (s is None) or (B is None):
+        if s and B:
+            await self.send_response([s.hex(), B.hex()])
+        else:
             await self.send_error(constants.ERR_CHALLENGE)
             return
-        else:
-            await self.send_response([s.hex(), B.hex()])
 
         # Verification
         response = await self.recv()
@@ -77,10 +77,14 @@ class ClientAI(ClientBase):
                 await self.send_response(HAMK.hex())
                 self.counter_cipher = svr.get_session_key()
 
-                self.name = name
+                self.name = dg.data
                 self.id = pyarchy.core.Identity()
             else:
                 await self.send_error(constants.ERR_VERIFICATION)
+                return
+        else:
+            await self.send_error(constants.ERR_VERIFICATION)
+            return
 
 
 class Server(object):
@@ -136,9 +140,8 @@ class Server(object):
         server_coro = loop.create_server(
             # Stream factory
             lambda: asyncio.StreamReaderProtocol(
-                asyncio.StreamReader(loop = loop),
-                self.new_connection,
-                loop),
+                asyncio.StreamReader(),
+                self.new_connection),
             sock = self._socket)
 
         # Make the client pool

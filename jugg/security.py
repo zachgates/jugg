@@ -53,6 +53,9 @@ class KeyHandler(object):
         self.__counter_key = None
         self.__counter_cipher = None
 
+        self.__hash = None
+        self.__counter_hash = None
+
     @property
     def key(self) -> int:
         return self.__public_key
@@ -65,32 +68,33 @@ class KeyHandler(object):
     def counter_key(self, key : int):
         if self.__counter_key is None:
             self.__counter_key = int(key)
+            self.__hash = self.generate_SHA256(long_to_bytes(pow(
+                self.__counter_key,
+                self.__private_key,
+                _DEF_P)))
         else:
             raise AttributeError('counter_key can only be set once')
 
     @property
     def cipher(self):
-        if self.__counter_key:
-            hash_ = self.generate_SHA256(long_to_bytes(pow(
-                self.__counter_key,
-                self.__private_key,
-                _DEF_P)))
-            return self.generate_AES256(hash_[0:32], hash_[16:32])
+        if self.__hash:
+            return self.generate_AES256(
+                self.__hash[0:32], self.__hash[16:32])
         else:
             return None
 
     @property
     def counter_cipher(self):
-        if self.__counter_cipher:
-            hash_ = self.generate_SHA256(self.__counter_cipher)
-            return self.generate_AES256(hash_[0:32], hash_[16:32])
+        if self.__counter_hash:
+            return self.generate_AES256(
+                self.__counter_hash[0:32], self.__counter_hash[16:32])
         else:
             return None
 
     @counter_cipher.setter
     def counter_cipher(self, bytes_ : bytes):
-        if self.__counter_cipher is None:
-            self.__counter_cipher = bytes_
+        if self.__counter_hash is None:
+            self.__counter_hash = self.generate_SHA256(bytes_)
         else:
             raise AttributeError('counter_cipher can only be set once')
 
@@ -118,12 +122,6 @@ class KeyHandler(object):
         return secure_string_comparison(gen_hmac, base64.b85decode(hmac))
 
     def encrypt(self, data: str) -> bytes:
-        # Encode the data
-        data = base64.b85encode(str(data).encode())
-        # Pad the data
-        size = AES.block_size - len(data) % AES.block_size
-        data += bytes([size]) * size
-
         # Encrypt with personal cipher
         if self.cipher:
             data = self.cipher.encrypt(data)
@@ -143,12 +141,7 @@ class KeyHandler(object):
         if self.cipher:
             data = self.cipher.decrypt(data)
 
-        # Unpad the data
-        data = data[:-data[-1]]
-        # Decode the data
-        data = base64.b85decode(data).decode()
-        # Make a Datagram
-        return core.Datagram.from_string(data)
+        return data
 
 
 __all__ = [

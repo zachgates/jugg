@@ -78,6 +78,9 @@ class Client(ClientBase):
                 return
             else:
                 await self.send_response(M.hex())
+        else:
+            await self.do_error(constants.ERR_CHALLENGE)
+            return
 
         # Verification
         response = await self.recv()
@@ -92,8 +95,12 @@ class Client(ClientBase):
             if user.authenticated():
                 self.name = name
                 self.id = pyarchy.core.Identity(response.recipient)
+            else:
+                await self.do_error(constants.ERR_VERIFICATION)
+                return
         else:
             await self.do_error(constants.ERR_VERIFICATION)
+            return
 
 
 __all__ = [
