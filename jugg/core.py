@@ -77,10 +77,11 @@ class Datagram(object):
         return self.__hmac
 
 
-class Node(security.KeyHandler):
+class Node(security.KeyHandler, pyarchy.common.ClassicObject):
 
     def __init__(self, stream_reader, stream_writer):
         security.KeyHandler.__init__(self)
+        pyarchy.common.ClassicObject.__init__(self, '', False)
 
         self._stream_reader = stream_reader
         self._stream_writer = stream_writer
@@ -162,7 +163,7 @@ class Node(security.KeyHandler):
                 data = self.key))
 
     async def handle_handshake(self, dg):
-        self.counter_key = int(dg.data) if dg.data else 0
+        self.counter_key = int(dg.data or 0)
 
     async def send_error(self, errno : int):
         await self.send(
@@ -184,13 +185,12 @@ class Node(security.KeyHandler):
             await self.send_error(constants.ERR_DISCONNECT)
 
 
-class ClientBase(Node, pyarchy.common.ClassicObject):
+class ClientBase(Node):
 
     def __init__(self,
                  stream_reader, stream_writer,
                  hmac_key, challenge_key):
         Node.__init__(self, stream_reader, stream_writer)
-        pyarchy.common.ClassicObject.__init__(self, '', rand_id = False)
 
         self._hmac_key = hmac_key or b''
         self._challenge_key = challenge_key or b''

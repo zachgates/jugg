@@ -76,9 +76,7 @@ class ClientAI(ClientBase):
             if HAMK and svr.authenticated():
                 await self.send_response(HAMK.hex())
                 self.counter_cipher = svr.get_session_key()
-
                 self.name = dg.data
-                self.id = pyarchy.core.Identity()
             else:
                 await self.send_error(constants.ERR_VERIFICATION)
                 return
@@ -116,6 +114,7 @@ class Server(object):
                 stream_reader, stream_writer,
                 self._hmac_key, self._challenge_key,
                 **kwargs)
+            client.id = pyarchy.core.Identity()
             self.clients.add(client)
             # Maintain the connection
             await client.start()

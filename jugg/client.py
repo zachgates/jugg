@@ -44,6 +44,10 @@ class Client(ClientBase):
             loop = loop,
             sock = self._socket)
 
+    async def handle_handshake(self, dg):
+        await super().handle_handshake(dg)
+        self.id = pyarchy.core.Identity(dg.recipient)
+
     async def handle_login(self, dg):
         # Credentials
         if not dg.recipient:
@@ -94,7 +98,6 @@ class Client(ClientBase):
 
             if user.authenticated():
                 self.name = name
-                self.id = pyarchy.core.Identity(response.recipient)
             else:
                 await self.do_error(constants.ERR_VERIFICATION)
                 return
