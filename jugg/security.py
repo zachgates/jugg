@@ -134,6 +134,5 @@ class KeyHandler(object):
 
 
 __all__ = [
-    secure_string_comparison,
     KeyHandler,
 ]
