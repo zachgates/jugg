@@ -102,13 +102,13 @@ class KeyHandler(object):
             msg = str(message).encode(),
             digestmod = hashlib.sha512).digest()
 
-    def verify_HMAC(self, hmac, data, key = None):
+    def verify_HMAC(self, supplied_hmac, data, key = None):
         if key is None:
             gen_hmac = self.generate_HMAC(data)
         else:
             gen_hmac = self.generate_HMAC(data, key)
 
-        return hmac.compare_digest(gen_hmac, base64.b85decode(hmac))
+        return hmac.compare_digest(gen_hmac, base64.b85decode(supplied_hmac))
 
     def encrypt(self, data: str) -> bytes:
         # Encrypt with personal cipher
