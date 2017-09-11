@@ -31,17 +31,6 @@ _DEF_P = int(
     '6034739679137202157599997031290815163983987')
 
 
-def secure_string_comparison(lstring, rstring):
-    if len(lstring) != len(rstring):
-        return False
-    else:
-        for lchar, rchar in zip(lstring, rstring):
-            if lchar != rchar:
-                return False
-        else:
-            return True
-
-
 class KeyHandler(object):
 
     def __init__(self):
@@ -119,7 +108,7 @@ class KeyHandler(object):
         else:
             gen_hmac = self.generate_HMAC(data, key)
 
-        return secure_string_comparison(gen_hmac, base64.b85decode(hmac))
+        return hmac.compare_digest(gen_hmac, base64.b85decode(hmac))
 
     def encrypt(self, data: str) -> bytes:
         # Encrypt with personal cipher
