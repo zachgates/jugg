@@ -12,6 +12,8 @@ from setuptools import find_packages, setup, Command
 URL = 'https://github.com/zachgates/jugg'
 REQUIRED = [
     'pyarchy',
+    'srp',
+    'pycryptodome',
 ]
 
 
