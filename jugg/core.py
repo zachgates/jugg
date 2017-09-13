@@ -135,10 +135,13 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
         await self.send_handshake()
 
         # Maintain the connection
-        flag = False
-        while not flag:
+        while True:
             data = await self.recv()
-            flag = not await self.run(data)
+            if not data:
+                break
+
+            if not await self.run(data):
+                break
 
     async def run(self, dg):
         if dg is None:
