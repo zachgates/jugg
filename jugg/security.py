@@ -110,7 +110,11 @@ class KeyHandler(object):
 
         return hmac.compare_digest(gen_hmac, base64.b85decode(supplied_hmac))
 
-    def encrypt(self, data: str) -> bytes:
+    def encrypt(self, data: bytes) -> bytes:
+        # Pad the data
+        size = AES.block_size - len(data) % 16
+        data += bytes([size]) * size
+
         # Encrypt with personal cipher
         if self.cipher:
             data = self.cipher.encrypt(data)
@@ -121,7 +125,7 @@ class KeyHandler(object):
 
         return data
 
-    def decrypt(self, data: bytes) -> str:
+    def decrypt(self, data: bytes) -> bytes:
         # Decrypt with alternate cipher
         if self.counter_cipher:
             data = self.counter_cipher.decrypt(data)
@@ -130,7 +134,8 @@ class KeyHandler(object):
         if self.cipher:
             data = self.cipher.decrypt(data)
 
-        return data
+        # Unpad the data
+        return data[:-data[-1]]
 
 
 __all__ = [

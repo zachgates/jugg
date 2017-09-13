@@ -92,12 +92,8 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
         }
 
     async def send(self, dg : Datagram):
-        # Encode
-        data = base64.b85encode(str(dg).encode())
-        # Pad
-        size = 16 - len(data) % 16
-        data += bytes([size]) * size
-        # Encrypt
+        data = str(dg).encode()
+        data = base64.b85encode(data)
         data = self.encrypt(data)
 
         n_bytes = len(data)
@@ -113,49 +109,42 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
                 n_bytes = socket.ntohl(struct.unpack('I', pointer)[0])
 
             data = await self._stream_reader.read(n_bytes)
-
-            if data:
-                # Decrypt
-                data = self.decrypt(data)
-                # Unpad
-                data = data[:-data[-1]]
-                # Decode
-                data = base64.b85decode(data).decode()
-                return Datagram.from_string(data)
-            else:
-                return None
+            data = self.decrypt(data)
+            data = base64.b85decode(data).decode()
+            return Datagram.from_string(data)
         except asyncio.streams.IncompleteReadError:
             # Failed to receive pointer
-            return None
+            pass
         except struct.error:
             # Received invalid pointer
-            return None
+            pass
+        except json.decoder.JSONDecodeError:
+            # Bad Datagram
+            pass
+
+        return None
 
     async def start(self):
         await self.send_handshake()
 
         # Maintain the connection
         while True:
-            data = await self.recv()
-            if not data:
+            dg = await self.recv()
+            if not dg:
                 break
 
-            if not await self.run(data):
+            if await self.handle_datagram(dg):
                 break
-
-    async def run(self, dg):
-        if dg is None:
-            #  Connection broke
-            return False
-        elif dg:
-            await self.handle_datagram(dg)
-            return True
-        else:
-            # Still connected; nothing to do
-            return True
 
     async def stop(self):
         self._stream_writer.close()
+
+    async def handle_datagram(self, dg : Datagram):
+        func = self._commands.get(dg.command)
+        if func:
+            await func(dg)
+        else:
+            await self.send_error(constants.ERR_DISCONNECT)
 
     async def send_handshake(self):
         await self.send(
@@ -165,8 +154,8 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
                 recipient = self.id,
                 data = self.key))
 
-    async def handle_handshake(self, dg):
-        self.counter_key = int(dg.data or 0)
+    async def handle_handshake(self, dg : Datagram):
+        self.counter_key = int(dg.data)
 
     async def send_error(self, errno : int):
         await self.send(
@@ -180,12 +169,13 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
     async def handle_error(self, dg : Datagram):
         return NotImplemented
 
-    async def handle_datagram(self, dg: Datagram):
-        func = self._commands.get(dg.command)
-        if func:
-            await func(dg)
-        else:
-            await self.send_error(constants.ERR_DISCONNECT)
+    async def send_response(self, data):
+        await self.send(
+            Datagram(
+                command = constants.CMD_RESP,
+                sender = self.id,
+                recipient = self.id,
+                data = data))
 
 
 class ClientBase(Node):
@@ -222,14 +212,6 @@ class ClientBase(Node):
             self._name = str(name)
         else:
             raise AttributeError('name can only be set once')
-
-    async def send_response(self, data):
-        await self.send(
-            Datagram(
-                command = constants.CMD_RESP,
-                sender = self.id,
-                recipient = self.id,
-                data = data))
 
 
 __all__ = [
