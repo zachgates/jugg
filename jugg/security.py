@@ -54,7 +54,7 @@ class KeyHandler(object):
         return self.__counter_key
 
     @counter_key.setter
-    def counter_key(self, key : int):
+    def counter_key(self, key: int):
         if self.__counter_key is None:
             self.__counter_key = int(key)
             self.__hash = self.generate_SHA256(long_to_bytes(pow(
@@ -81,7 +81,7 @@ class KeyHandler(object):
             return None
 
     @counter_cipher.setter
-    def counter_cipher(self, bytes_ : bytes):
+    def counter_cipher(self, bytes_: bytes):
         if self.__counter_hash is None:
             self.__counter_hash = self.generate_SHA256(bytes_)
         else:
@@ -90,23 +90,20 @@ class KeyHandler(object):
     def generate_AES256(self, key, iv):
         return AES.new(key, AES.MODE_CBC, iv)
 
-    def generate_SHA256(self, bytes_ : bytes):
+    def generate_SHA256(self, bytes_: bytes):
         return SHA256.new(bytes_).digest()
 
-    def generate_HMAC(self, message, key = None):
+    def generate_HMAC(self, msg: str, key: int = None):
         if key is None:
             key = self.__aes_key
 
-        return hmac.new(
-            key,
-            msg = str(message).encode(),
-            digestmod = hashlib.sha512).digest()
+        return hmac.new(key, msg.encode(), hashlib.sha512).digest()
 
-    def verify_HMAC(self, supplied_hmac, data, key = None):
+    def verify_HMAC(self, supplied_hmac, data, key: int = None):
         if key is None:
-            gen_hmac = self.generate_HMAC(data)
+            gen_hmac = self.generate_HMAC(str(data))
         else:
-            gen_hmac = self.generate_HMAC(data, key)
+            gen_hmac = self.generate_HMAC(str(data), key)
 
         return hmac.compare_digest(gen_hmac, base64.b85decode(supplied_hmac))
 

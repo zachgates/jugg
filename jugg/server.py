@@ -12,18 +12,18 @@ class ClientAI(ClientBase):
 
     def __init__(self,
                  stream_reader, stream_writer,
-                 hmac_key : bytes, challenge_key : bytes):
+                 hmac_key: bytes, challenge_key: bytes):
         ClientBase.__init__(
             self,
             stream_reader, stream_writer,
             hmac_key, challenge_key)
 
         self._commands[constants.CMD_LOGIN] = self.handle_login
-        
+
     def verify_credentials(self, data):
         return utils.validate_name(data)
 
-    async def handle_login(self, dg : Datagram):
+    async def handle_login(self, dg: Datagram):
         # Credentials
         if not self.verify_credentials(dg.data):
             await self.send_error(constants.ERR_CREDENTIALS)
@@ -90,9 +90,9 @@ class Server(object):
     client_handler = ClientAI
 
     def __init__(self,
-                 host : str = None, port : int = None,
-                 socket_ : socket.socket = None,
-                 hmac_key : bytes = None, challenge_key : bytes = None):
+                 host: str = None, port: int = None,
+                 socket_: socket.socket = None,
+                 hmac_key: bytes = None, challenge_key: bytes = None):
         KeyHandler.__init__(self)
 
         if host and port:
@@ -104,7 +104,7 @@ class Server(object):
         else:
             raise TypeError('must supply either address or socket')
 
-        self._hmac_key = hmac_key or  b''
+        self._hmac_key = hmac_key or b''
         self._challenge_key = challenge_key or b''
 
     async def new_connection(self, stream_reader, stream_writer, **kwargs):
@@ -141,7 +141,7 @@ class Server(object):
             lambda: asyncio.StreamReaderProtocol(
                 asyncio.StreamReader(),
                 self.new_connection),
-            sock = self._socket)
+            sock=self._socket)
 
         # Make the client pool
         self.clients = pyarchy.data.ItemPool()
@@ -154,7 +154,7 @@ class Server(object):
         utils.reactive_event_loop(
             event_loop,
             start_coro, self.stop(),
-            run_forever = True)
+            run_forever=True)
 
     async def stop(self):
         # Cleanup

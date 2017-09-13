@@ -12,9 +12,9 @@ from .core import ClientBase, Datagram
 class Client(ClientBase):
 
     def __init__(self,
-                 host : str = None, port : int = None,
-                 socket_ : socket.socket = None,
-                 hmac_key : bytes = None, challenge_key : bytes = None):
+                 host: str = None, port: int = None,
+                 socket_: socket.socket = None,
+                 hmac_key: bytes = None, challenge_key: bytes = None):
         if host and port:
             self._address = (host, port)
             self._socket = None
@@ -40,9 +40,7 @@ class Client(ClientBase):
         else:
             raise AttributeError('no socket or address specified')
 
-        return await asyncio.open_connection(
-            loop = loop,
-            sock = self._socket)
+        return await asyncio.open_connection(loop=loop, sock=self._socket)
 
     async def handle_handshake(self, dg):
         await super().handle_handshake(dg)
@@ -62,7 +60,7 @@ class Client(ClientBase):
 
         response = await self.recv()
 
-        if not response or response.data != True:
+        if not response or response.data is not True:
             await self.do_error(constants.ERR_HMAC)
             return
 

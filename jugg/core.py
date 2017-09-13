@@ -13,13 +13,13 @@ from . import constants, security
 class Datagram(object):
 
     @classmethod
-    def from_string(cls, str_ : str):
+    def from_string(cls, str_: str):
         return cls(**json.loads(str_))
 
     def __init__(self,
-                 command : int = None,
-                 sender : str = None, recipient : str = None,
-                 data : str = None, hmac : str = None):
+                 command: int = None,
+                 sender: str = None, recipient: str = None,
+                 data: str = None, hmac: str = None):
         object.__init__(self)
 
         self.__command = command
@@ -54,7 +54,7 @@ class Datagram(object):
         return self.__recipient
 
     @recipient.setter
-    def recipient(self, recipient : str):
+    def recipient(self, recipient: str):
         self.__recipient = str(recipient)
 
     @property
@@ -91,7 +91,7 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
             constants.CMD_ERR: self.handle_error,
         }
 
-    async def send(self, dg : Datagram):
+    async def send(self, dg: Datagram):
         data = str(dg).encode()
         data = base64.b85encode(data)
         data = self.encrypt(data)
@@ -102,7 +102,7 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
         self._stream_writer.write(pointer + data)
         await self._stream_writer.drain()
 
-    async def recv(self, n_bytes : int = None):
+    async def recv(self, n_bytes: int = None):
         try:
             if n_bytes is None:
                 pointer = await self._stream_reader.readexactly(4)
@@ -139,7 +139,7 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
     async def stop(self):
         self._stream_writer.close()
 
-    async def handle_datagram(self, dg : Datagram):
+    async def handle_datagram(self, dg: Datagram):
         func = self._commands.get(dg.command)
         if func:
             await func(dg)
@@ -154,10 +154,10 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
                 recipient = self.id,
                 data = self.key))
 
-    async def handle_handshake(self, dg : Datagram):
+    async def handle_handshake(self, dg: Datagram):
         self.counter_key = int(dg.data)
 
-    async def send_error(self, errno : int):
+    async def send_error(self, errno: int):
         await self.send(
             Datagram(
                 command = constants.CMD_ERR,
@@ -166,7 +166,7 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
                 data = errno))
 
     # Add functionality in subclass
-    async def handle_error(self, dg : Datagram):
+    async def handle_error(self, dg: Datagram):
         return NotImplemented
 
     async def send_response(self, data):
@@ -207,7 +207,7 @@ class ClientBase(Node):
         return str(self._name)
 
     @name.setter
-    def name(self, name : str):
+    def name(self, name: str):
         if self._name is None:
             self._name = str(name)
         else:
