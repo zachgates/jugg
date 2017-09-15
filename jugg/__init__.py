@@ -1,4 +1,4 @@
-__version__ = '1.1.3'
+__version__ = '1.1.4'
 __license__ = 'MIT'
 __copyright__ = 'Copyright (C) 2017 Zach Gates'
 
@@ -15,15 +15,12 @@ __all__ = [
 ]
 
 try:
-    import os
-    import sys
-
+    import os, sys
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
     for module in __all__:
         __import__('jugg.' + module)
 
-    del os
-    del sys
+    del os, sys
 except NameError:
     pass
