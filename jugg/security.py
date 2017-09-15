@@ -93,17 +93,17 @@ class KeyHandler(object):
     def generate_SHA256(self, bytes_: bytes):
         return SHA256.new(bytes_).digest()
 
-    def generate_HMAC(self, msg: str, key: int = None):
+    def generate_HMAC(self, msg: bytes, key: int = None):
         if key is None:
             key = self.__aes_key
 
-        return hmac.new(key, msg.encode(), hashlib.sha512).digest()
+        return hmac.new(key, msg, hashlib.sha512).digest()
 
-    def verify_HMAC(self, supplied_hmac, data, key: int = None):
+    def verify_HMAC(self, supplied_hmac, data: bytes, key: int = None):
         if key is None:
-            gen_hmac = self.generate_HMAC(str(data))
+            gen_hmac = self.generate_HMAC(data)
         else:
-            gen_hmac = self.generate_HMAC(str(data), key)
+            gen_hmac = self.generate_HMAC(data, key)
 
         return hmac.compare_digest(gen_hmac, base64.b85decode(supplied_hmac))
 

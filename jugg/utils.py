@@ -17,7 +17,6 @@ def reactive_event_loop(loop, start_task, stop_task, run_forever = False):
 
         loop.run_until_complete(stop_task)
         loop.stop()
-        loop.close()
 
 
 def validate_name(name):

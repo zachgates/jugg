@@ -99,8 +99,12 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
         n_bytes = len(data)
         pointer = struct.pack('I', socket.htonl(n_bytes))
 
-        self._stream_writer.write(pointer + data)
-        await self._stream_writer.drain()
+        try:
+            self._stream_writer.write(pointer + data)
+            await self._stream_writer.drain()
+        except ConnectionResetError:
+            # Client crashed
+            pass
 
     async def recv(self, n_bytes: int = None):
         try:
@@ -112,6 +116,9 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
             data = self.decrypt(data)
             data = base64.b85decode(data).decode()
             return Datagram.from_string(data)
+        except ConnectionResetError:
+            # Client crashed
+            pass
         except asyncio.streams.IncompleteReadError:
             # Failed to receive pointer
             pass
