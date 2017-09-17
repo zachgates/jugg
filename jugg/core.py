@@ -5,8 +5,6 @@ import pyarchy
 import socket
 import struct
 
-from concurrent.futures import TimeoutError
-
 from . import constants, security
 
 
