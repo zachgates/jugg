@@ -33,7 +33,7 @@ class Datagram(object):
         self.__recipient = str(recipient) if recipient else recipient
         self.__data = data
         self.__hmac = str(hmac) if hmac else hmac
-        self.__ts = float(timestamp) if timestamp else time.time()
+        self.__ts = float(timestamp) if timestamp is not None else time.time()
 
     def __str__(self):
         return json.dumps({
@@ -78,7 +78,7 @@ class Datagram(object):
         if isinstance(data, bytes):
             self.__data = data.decode()
         else:
-            self.__data = str(data)
+            self.__data = data
 
     @property
     def hmac(self) -> str:
