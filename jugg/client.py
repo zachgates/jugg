@@ -28,8 +28,6 @@ class Client(ClientBase):
         streams = loop.run_until_complete(self.make_streams(loop))
         ClientBase.__init__(self, *streams, hmac_key, challenge_key)
 
-        self._commands[constants.CMD_LOGIN] = self.handle_login
-
     async def make_streams(self, loop):
         if self._socket:
             pass
@@ -46,7 +44,7 @@ class Client(ClientBase):
         await super().handle_handshake(dg)
         self.id = pyarchy.core.Identity(dg.recipient)
 
-    async def handle_login(self, dg):
+    async def handle_authenticate(self, dg):
         # Credentials
         if not dg.recipient:
             await self.do_error(constants.ERR_CREDENTIALS)

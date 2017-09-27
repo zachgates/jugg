@@ -4,6 +4,7 @@ import json
 import pyarchy
 import socket
 import struct
+import time
 
 from . import constants, security
 
@@ -12,19 +13,27 @@ class Datagram(object):
 
     @classmethod
     def from_string(cls, str_: str):
-        return cls(**json.loads(str_))
+        dg = cls(**json.loads(str_))
+
+        # Verify timestamp
+        if dg.timestamp >= time.time():
+            return cls()
+        else:
+            return dg
 
     def __init__(self,
                  command: int = None,
                  sender: str = None, recipient: str = None,
-                 data: str = None, hmac: str = None):
+                 data: str = None, hmac: str = None,
+                 timestamp: float = None):
         object.__init__(self)
 
-        self.__command = command
-        self.__sender = sender
-        self.__recipient = recipient
+        self.__command = int(command) if command else command
+        self.__sender = str(sender) if sender else sender
+        self.__recipient = str(recipient) if recipient else recipient
         self.__data = data
-        self.__hmac = hmac
+        self.__hmac = str(hmac) if hmac else hmac
+        self.__ts = float(timestamp) if timestamp else time.time()
 
     def __str__(self):
         return json.dumps({
@@ -33,15 +42,16 @@ class Datagram(object):
             'recipient': self.recipient,
             'data': self.data,
             'hmac': self.hmac,
+            'timestamp': self.timestamp,
         })
 
     @property
-    def command(self):
+    def command(self) -> int:
         return self.__command
 
     @command.setter
     def command(self, command):
-        self.__command = command
+        self.__command = int(command)
 
     @property
     def sender(self) -> str:
@@ -56,7 +66,7 @@ class Datagram(object):
         self.__recipient = str(recipient)
 
     @property
-    def route(self):
+    def route(self) -> tuple:
         return (self.sender, self.recipient)
 
     @property
@@ -68,11 +78,15 @@ class Datagram(object):
         if isinstance(data, bytes):
             self.__data = data.decode()
         else:
-            self.__data = data
+            self.__data = str(data)
 
     @property
-    def hmac(self):
+    def hmac(self) -> str:
         return self.__hmac
+
+    @property
+    def timestamp(self) -> float:
+        return self.__ts
 
 
 class Node(security.KeyHandler, pyarchy.common.ClassicObject):
@@ -84,10 +98,7 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
         self._stream_reader = stream_reader
         self._stream_writer = stream_writer
 
-        self._commands = {
-            constants.CMD_SHAKE: self.handle_handshake,
-            constants.CMD_ERR: self.handle_error,
-        }
+        self._commands = {}
 
     async def send(self, dg: Datagram):
         data = str(dg).encode()
@@ -146,6 +157,13 @@ class Node(security.KeyHandler, pyarchy.common.ClassicObject):
 
     async def handle_datagram(self, dg: Datagram):
         func = self._commands.get(dg.command)
+
+        if not func:
+            func = getattr(
+                self,
+                'handle_' + constants.CMD_2_NAME.get(dg.command),
+                None)
+
         if func:
             await func(dg)
         else:

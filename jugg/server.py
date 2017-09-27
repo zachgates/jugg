@@ -18,12 +18,10 @@ class ClientAI(ClientBase):
             stream_reader, stream_writer,
             hmac_key, challenge_key)
 
-        self._commands[constants.CMD_LOGIN] = self.handle_login
-
     def verify_credentials(self, data):
         return utils.validate_name(data)
 
-    async def handle_login(self, dg: Datagram):
+    async def handle_authenticate(self, dg: Datagram):
         # Credentials
         if not self.verify_credentials(dg.data):
             await self.send_error(constants.ERR_CREDENTIALS)
@@ -31,7 +29,7 @@ class ClientAI(ClientBase):
         else:
             await self.send(
                 Datagram(
-                    command = constants.CMD_LOGIN,
+                    command = constants.CMD_AUTH,
                     recipient = dg.data))
 
         # HMAC
