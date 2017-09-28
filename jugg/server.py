@@ -18,6 +18,14 @@ class ClientAI(ClientBase):
             stream_reader, stream_writer,
             hmac_key, challenge_key)
 
+    async def start(self):
+        server.conns.add(self)
+        await super().start()
+
+    async def stop(self):
+        await super().stop()
+        server.conns.remove(self)
+
     def verify_credentials(self, data):
         return utils.validate_name(data)
 
@@ -108,18 +116,14 @@ class Server(object):
     async def new_connection(self, stream_reader, stream_writer, **kwargs):
         try:
             # Create the client on the server
-            client = self.client_handler(
+            conn = self.client_handler(
                 stream_reader, stream_writer,
                 self._hmac_key, self._challenge_key,
                 **kwargs)
-            client.id = pyarchy.core.Identity()
-            self.clients.add(client)
-            # Maintain the connection
-            await client.start()
-            # Connection broke; remove the client from the server
-            self.clients.remove(client)
+            conn.id = pyarchy.core.Identity()
+            return conn
         except asyncio.CancelledError:
-            return
+            return None
 
     def start(self):
         if self._socket:
@@ -142,8 +146,8 @@ class Server(object):
             sock=self._socket)
 
         # Make the client pool
-        self.clients = pyarchy.data.ItemPool()
-        self.clients.object_type = ClientBase
+        self.conns = pyarchy.data.ItemPool()
+        self.conns.object_type = ClientBase
 
         self.run(loop, server_coro)
 
